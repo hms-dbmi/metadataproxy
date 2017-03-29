@@ -112,7 +112,39 @@ def find_container(ip):
                 log.error('gethostbyaddr failed: {0}'.format(e.args))
                 pass
 
-    with PrintingBlockTimer('Container fetch'):
+    # Fetch docker_gwbridge network, search for container by IP address
+    # allows checking IP against containers in overlay networks
+    with PrintingBlockTimer('Container fetch by docker_gwbridge'):
+        _networks = { net['Name'] : net['Id'] for net in client.networks() }
+
+    try:
+        with PrintingBlockTimer('Network inspect'):
+            _net = client.inspect_network(_networks['docker_gwbridge'])
+
+        _containers = _net['Containers']
+        for key in _containers.keys():
+            if _containers[key]['IPv4Address'].split('/')[0] == ip:
+                msg = 'Container id {0} mapped to {1} by IP match'
+                log.info(msg.format(key, ip))
+
+
+                # verify container exists
+                try:
+                    with PrintingBlockTimer('Container inspect'):
+                        c = client.inspect_container(key)
+                    CONTAINER_MAPPING[ip] = key
+                    return c
+                except docker.errors.NotFound:
+                    log.error('Container id {0} not found'.format(key))
+
+                break
+
+    except docker.errors.NotFound:
+        log.error('Network docker_gwbridge not found')
+
+
+    # Fetch all containers, search for contianer by IP address in Network and subnetworks
+    with PrintingBlockTimer('Container fetch by containers'):
         _ids = [c['Id'] for c in client.containers()]
 
     for _id in _ids:
@@ -122,6 +154,7 @@ def find_container(ip):
         except docker.errors.NotFound:
             log.error('Container id {0} not found'.format(_id))
             continue
+
         # Try matching container to caller by IP address
         _ip = c['NetworkSettings']['IPAddress']
         if ip == _ip:
