@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y iptables
 
 COPY provision.sh /docker-entrypoint
 
+RUN chmod +x /docker-entrypoint
+
 ENV PORT 8000
 EXPOSE 8000
 

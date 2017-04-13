@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
-DOCKER_GW=$(ip addr show docker0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+DOCKER_GW=$(ip addr show docker_gwbridge | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+DOCKER0=$(ip addr show docker0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
 
 
 if ! iptables --wait -t nat -i docker0 -p tcp --dport 80 --destination 169.254.169.254 --jump DNAT --to-destination "${DOCKER_GW}":$PORT -C PREROUTING 2> /dev/null; then
@@ -12,7 +13,7 @@ if ! iptables --wait -t nat -i docker0 -p tcp --dport 80 --destination 169.254.1
       --dport 80 \
       --destination 169.254.169.254 \
       --jump DNAT \
-      --to-destination "${DOCKER_GW}":$PORT
+      --to-destination "${DOCKER0}":$PORT
 fi
 
 if ! iptables --wait -t nat -i docker_gwbridge -p tcp --dport 80 --destination 169.254.169.254 --jump DNAT --to-destination "${DOCKER_GW}":$PORT -C PREROUTING 2> /dev/null; then
